@@ -55,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       joinedInitiatives: [...user.joinedInitiatives, initiativeId] 
     };
     setUser(updatedUser);
-    // In a real app, this would update backend. Here we just update local state.
   };
 
   const leaveInitiative = (initiativeId: string) => {
