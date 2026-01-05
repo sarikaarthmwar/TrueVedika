@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 
-import logoImg from '@assets/Logo_1767586822894.png';
+import logoImg from '@/assets/logo.png';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();

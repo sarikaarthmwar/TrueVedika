@@ -1,6 +1,6 @@
-import cyclingImg from '@assets/generated_images/group_of_friends_cycling_in_nature.png';
-import coffeeImg from '@assets/generated_images/morning_coffee_community_meetup.png';
-import walkingImg from '@assets/generated_images/peaceful_silent_walk_in_nature.png';
+import cyclingImg from '@/assets/cycling.png';
+import coffeeImg from '@/assets/coffee.png';
+import walkingImg from '@/assets/walking.png';
 
 export type User = {
   id: string;

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 
-import logoImg from '@assets/Logo_1767586822894.png';
+import logoImg from '@/assets/logo.png';
 
 export default function AuthPage() {
   const { login, isLoading, user } = useAuth();
