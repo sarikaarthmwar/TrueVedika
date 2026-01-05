@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 
+import logoImg from '@assets/Logo_1767586822894.png';
+
 export default function AuthPage() {
   const { login, isLoading, user } = useAuth();
   const [, setLocation] = useLocation();
@@ -37,9 +39,10 @@ export default function AuthPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-serif font-bold text-primary mb-2">TruVedika</h1>
-          <p className="text-muted-foreground">Building trusted communities together.</p>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img src={logoImg} alt="TrueVedika" className="w-24 h-24 object-contain mb-4" />
+          <h1 className="text-4xl font-serif font-bold text-primary mb-2">TrueVedika</h1>
+          <p className="text-muted-foreground italic font-serif">A Trusted Community for Wellness & Connection</p>
         </div>
 
         <Card className="border-border shadow-soft bg-white/80 backdrop-blur-sm">

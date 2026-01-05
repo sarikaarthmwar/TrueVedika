@@ -19,6 +19,8 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 
+import logoImg from '@assets/Logo_1767586822894.png';
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -27,10 +29,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const NavContent = () => (
     <div className="flex flex-col h-full">
       <div className="p-6">
-        <h1 className="text-2xl font-serif font-bold text-primary flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm">TV</span>
-          TruVedika
-        </h1>
+        <Link href="/">
+          <a className="flex items-center gap-3 group">
+            <img src={logoImg} alt="TrueVedika" className="w-10 h-10 object-contain" />
+            <h1 className="text-2xl font-serif font-bold text-primary group-hover:text-primary/80 transition-colors">
+              TrueVedika
+            </h1>
+          </a>
+        </Link>
       </div>
 
       <nav className="flex-1 px-4 space-y-2">
@@ -102,7 +108,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-background border-b z-20 flex items-center justify-between px-4">
-        <h1 className="text-xl font-serif font-bold text-primary">TruVedika</h1>
+        <div className="flex items-center gap-2">
+          <img src={logoImg} alt="TrueVedika" className="w-8 h-8 object-contain" />
+          <h1 className="text-xl font-serif font-bold text-primary">TrueVedika</h1>
+        </div>
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
