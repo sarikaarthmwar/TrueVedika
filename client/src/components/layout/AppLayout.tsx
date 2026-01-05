@@ -30,46 +30,46 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col h-full">
       <div className="p-6">
         <Link href="/">
-          <a className="flex items-center gap-3 group">
+          <div className="flex items-center gap-3 group cursor-pointer">
             <img src={logoImg} alt="TrueVedika" className="w-10 h-10 object-contain" />
             <h1 className="text-2xl font-serif font-bold text-primary group-hover:text-primary/80 transition-colors">
               TrueVedika
             </h1>
-          </a>
+          </div>
         </Link>
       </div>
 
       <nav className="flex-1 px-4 space-y-2">
         <Link href="/">
-          <a className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
             location === '/' 
               ? 'bg-primary/10 text-primary font-medium' 
               : 'text-muted-foreground hover:bg-muted hover:text-foreground'
           }`}>
             <Home className="w-5 h-5" />
             My Community
-          </a>
+          </div>
         </Link>
         <Link href="/explore">
-          <a className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
             location === '/explore' || location.startsWith('/initiative')
               ? 'bg-primary/10 text-primary font-medium' 
               : 'text-muted-foreground hover:bg-muted hover:text-foreground'
           }`}>
             <Compass className="w-5 h-5" />
             Explore Initiatives
-          </a>
+          </div>
         </Link>
         {user?.role === 'admin' && (
            <Link href="/admin">
-           <a className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+           <div className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all cursor-pointer ${
              location === '/admin' 
                ? 'bg-primary/10 text-primary font-medium' 
                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
            }`}>
              <ShieldCheck className="w-5 h-5" />
              Moderation
-           </a>
+           </div>
          </Link>
         )}
       </nav>
@@ -80,11 +80,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <button className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-muted transition-colors text-left">
               <Avatar className="w-10 h-10 border border-border">
                 <AvatarImage src={user?.avatar} />
-                <AvatarFallback>{user?.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{(user?.name || 'G').charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user?.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <p className="text-sm font-medium truncate">{user?.name || 'Guest User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email || 'guest@truevedika.com'}</p>
               </div>
             </button>
           </DropdownMenuTrigger>

@@ -12,14 +12,22 @@ import { Link } from 'wouter';
 export default function Dashboard() {
   const { user } = useAuth();
   
-  if (!user) return null;
+  const displayUser = user || { 
+    name: 'Guest User', 
+    joinedInitiatives: [] as any[],
+    email: 'guest@truevedika.com',
+    avatar: ''
+  };
+  
+  // Log user status to help debug blank screen
+  console.log('Dashboard render - user:', !!user, 'displayUser:', displayUser.name);
 
-  const joinedInitiatives = MOCK_INITIATIVES.filter(i => 
-    user.joinedInitiatives.includes(i.id)
+  const joinedInitiatives = MOCK_INITIATIVES.filter(initiative => 
+    displayUser.joinedInitiatives && (displayUser.joinedInitiatives as any[]).includes(initiative.id)
   );
 
-  const feedPosts = MOCK_POSTS.filter(p => 
-    user.joinedInitiatives.includes(p.initiativeId)
+  const feedPosts = MOCK_POSTS.filter(post => 
+    displayUser.joinedInitiatives && (displayUser.joinedInitiatives as any[]).includes(post.initiativeId)
   );
 
   return (
@@ -28,8 +36,8 @@ export default function Dashboard() {
         
         {/* Header Section */}
         <section className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-serif font-bold text-foreground">
-            Welcome back, {user.name.split(' ')[0]}
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-foreground" data-testid="text-welcome">
+            Welcome back, {displayUser.name.split(' ')[0]}
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening in your community today.
@@ -105,7 +113,7 @@ export default function Dashboard() {
             <div>
               <h3 className="font-semibold mb-4">Suggested for you</h3>
               <div className="space-y-4">
-                {MOCK_INITIATIVES.filter(i => !user.joinedInitiatives.includes(i.id)).slice(0, 2).map(initiative => (
+                {MOCK_INITIATIVES.filter(i => !displayUser.joinedInitiatives || !(displayUser.joinedInitiatives as any[]).includes(i.id)).slice(0, 2).map(initiative => (
                   <div key={initiative.id} className="flex gap-3 items-start">
                     <img src={initiative.image} alt={initiative.title} className="w-12 h-12 rounded-lg object-cover" />
                     <div>

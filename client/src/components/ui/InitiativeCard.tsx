@@ -68,9 +68,9 @@ export function InitiativeCard({ initiative }: InitiativeCardProps) {
       
       <CardFooter className="p-4 pt-0">
         <div className="grid grid-cols-2 gap-3 w-full">
-          <Link href={`/initiative/${initiative.id}`} className="w-full">
-            <Button variant="outline" className="w-full">View Details</Button>
-          </Link>
+          <Button variant="outline" className="w-full" asChild>
+            <Link href={`/initiative/${initiative.id}`}>View Details</Link>
+          </Button>
           <Button 
             className={`w-full ${isJoined ? 'bg-muted text-muted-foreground hover:bg-muted' : ''}`}
             onClick={handleJoin}
