@@ -12,15 +12,9 @@ import { Link } from 'wouter';
 export default function Dashboard() {
   const { user } = useAuth();
   
-  const displayUser = user || { 
-    name: 'Guest User', 
-    joinedInitiatives: [] as any[],
-    email: 'guest@truevedika.com',
-    avatar: ''
-  };
+  if (!user) return null;
   
-  // Log user status to help debug blank screen
-  console.log('Dashboard render - user:', !!user, 'displayUser:', displayUser.name);
+  const displayUser = user;
 
   const joinedInitiatives = MOCK_INITIATIVES.filter(initiative => 
     displayUser.joinedInitiatives && (displayUser.joinedInitiatives as any[]).includes(initiative.id)

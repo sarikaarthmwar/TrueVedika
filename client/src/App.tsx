@@ -11,12 +11,17 @@ import Dashboard from "@/pages/Dashboard";
 import Explore from "@/pages/Explore";
 import InitiativeDetail from "@/pages/InitiativeDetail";
 import Admin from "@/pages/Admin";
+import Landing from "@/pages/Landing";
 
 function Router() {
+  const { user } = useAuth();
+
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
-      <Route path="/" component={Dashboard} />
+      <Route path="/">
+        {() => user ? <Dashboard /> : <Landing />}
+      </Route>
       <Route path="/explore" component={Explore} />
       <Route path="/initiative/:id" component={InitiativeDetail} />
       <Route path="/admin" component={Admin} />
