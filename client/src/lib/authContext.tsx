@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const joinInitiative = (initiativeId: string) => {
     if (!user) return;
+    if (user.joinedInitiatives.includes(initiativeId)) return;
     const updatedUser = { 
       ...user, 
       joinedInitiatives: [...user.joinedInitiatives, initiativeId] 

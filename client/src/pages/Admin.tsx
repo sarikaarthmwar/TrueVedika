@@ -1,17 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { MOCK_USERS, MOCK_INITIATIVES } from '@/lib/mockData';
+import { MOCK_USERS, MOCK_INITIATIVES, User, Initiative } from '@/lib/mockData';
 import { useAuth } from '@/lib/authContext';
 import { useLocation } from 'wouter';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, ShieldAlert, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, ShieldAlert, CheckCircle, UserPlus, Trash2, ShieldCheck as ShieldIcon } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Admin() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [initiatives, setInitiatives] = useState<Initiative[]>(MOCK_INITIATIVES);
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 
   if (user?.role !== 'admin') {
     return (
@@ -26,80 +47,213 @@ export default function Admin() {
     );
   }
 
+  const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newUser: User = {
+      id: `u${users.length + 1}`,
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      role: formData.get('role') as any,
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
+      joinedInitiatives: [],
+    };
+    setUsers([...users, newUser]);
+    setIsAddUserOpen(false);
+  };
+
+  const deleteUser = (id: string) => {
+    setUsers(users.filter(u => u.id !== id));
+  };
+
+  const deleteInitiative = (id: string) => {
+    setInitiatives(initiatives.filter(i => i.id !== id));
+  };
+
   return (
     <AppLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Moderation Dashboard</h1>
-          <p className="text-muted-foreground">Manage community safety and initiatives.</p>
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-foreground">Moderation Dashboard</h1>
+            <p className="text-muted-foreground">Manage community safety, users, and initiatives.</p>
+          </div>
+          
+          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="w-4 h-4" />
+                Add User
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <form onSubmit={handleAddUser}>
+                <DialogHeader>
+                  <DialogTitle className="font-serif">Add New User</DialogTitle>
+                  <DialogDescription>Create a new community member profile.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input id="name" name="name" required />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" type="email" required />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="role">Role</Label>
+                    <select name="role" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit">Create User</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
+          <Card className="glass-morphism">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{MOCK_USERS.length}</div>
+              <div className="text-2xl font-bold">{users.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="glass-morphism">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Active Initiatives</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{MOCK_INITIATIVES.length}</div>
+              <div className="text-2xl font-bold">{initiatives.length}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="glass-morphism">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Reports Pending</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">System Health</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-500">0</div>
+              <div className="text-2xl font-bold text-green-500 flex items-center gap-2">
+                <ShieldIcon className="w-5 h-5" /> Normal
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Community Initiatives</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Members</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {MOCK_INITIATIVES.map((initiative) => (
-                  <TableRow key={initiative.id}>
-                    <TableCell className="font-medium">{initiative.title}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{initiative.category}</Badge>
-                    </TableCell>
-                    <TableCell>{initiative.participantsCount}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-green-600 text-sm">
-                        <CheckCircle className="w-4 h-4" /> Active
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="initiatives" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+            <TabsTrigger value="initiatives">Initiatives</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="initiatives" className="mt-6">
+            <Card className="glass-morphism">
+              <CardHeader>
+                <CardTitle>Manage Initiatives</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Members</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {initiatives.map((initiative) => (
+                      <TableRow key={initiative.id}>
+                        <TableCell className="font-medium">{initiative.title}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{initiative.category}</Badge>
+                        </TableCell>
+                        <TableCell>{initiative.participantsCount}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-green-600 text-sm">
+                            <CheckCircle className="w-4 h-4" /> Active
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem className="text-destructive" onClick={() => deleteInitiative(initiative.id)}>
+                                <Trash2 className="w-4 h-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users" className="mt-6">
+            <Card className="glass-morphism">
+              <CardHeader>
+                <CardTitle>Manage Users</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((u) => (
+                      <TableRow key={u.id}>
+                        <TableCell className="font-medium">{u.name}</TableCell>
+                        <TableCell>{u.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={u.role === 'admin' ? 'default' : 'outline'}>
+                            {u.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                className="text-destructive" 
+                                onClick={() => deleteUser(u.id)}
+                                disabled={u.id === user?.id}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" /> Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
