@@ -37,7 +37,7 @@ export default function Explore() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newInitiative: Initiative = {
-      id: `i${localInitiatives.length + 1}`,
+      id: `temp-${Date.now()}`,
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       category: formData.get('category') as any,
@@ -46,7 +46,7 @@ export default function Explore() {
       nextEvent: 'Just Started',
       location: formData.get('location') as string,
     };
-    setLocalInitiatives([newInitiative, ...localInitiatives]);
+    setLocalInitiatives(prev => [newInitiative, ...prev]);
     setIsCreateOpen(false);
   };
 

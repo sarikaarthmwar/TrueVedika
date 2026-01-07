@@ -13,7 +13,7 @@ interface InitiativeCardProps {
 
 export function InitiativeCard({ initiative }: InitiativeCardProps) {
   const { user, joinInitiative } = useAuth();
-  const isJoined = user?.joinedInitiatives.includes(initiative.id);
+  const isJoined = user?.joinedInitiatives && user.joinedInitiatives.includes(initiative.id);
 
   const handleJoin = (e: React.MouseEvent) => {
     e.preventDefault();
