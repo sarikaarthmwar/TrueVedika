@@ -4,3 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+backend/.venv
+backend/.env
+backend/instance/credentials.json
+
+backend/**/__pycache__/
+*.pyc
