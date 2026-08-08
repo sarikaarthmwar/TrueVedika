@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { setupAuth, requireAuth, requireAdmin, hashPassword, sanitize } from "./auth";
-import { insertInitiativeSchema } from "@shared/schema";
+import { storage } from "./storage.js";
+import { setupAuth, requireAuth, requireAdmin, hashPassword, sanitize } from "./auth.js";
+import { insertInitiativeSchema } from "../shared/schema.js";
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   setupAuth(app);

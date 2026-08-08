@@ -5,8 +5,8 @@ import { Strategy as LocalStrategy } from "passport-local";
 import connectPgSimple from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { pool } from "./db";
-import { storage } from "./storage";
+import { pool } from "./db.js";
+import { storage } from "./storage.js";
 
 const scryptAsync = promisify(scrypt);
 

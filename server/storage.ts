@@ -1,6 +1,6 @@
-import { db } from "./db";
-import { users, initiatives, initiativeMembers, posts, comments } from "@shared/schema";
-import type { InsertUser, InsertInitiative } from "@shared/schema";
+import { db } from "./db.js";
+import { users, initiatives, initiativeMembers, posts, comments } from "../shared/schema.js";
+import type { InsertUser, InsertInitiative } from "../shared/schema.js";
 import { eq, and, inArray, desc, asc } from "drizzle-orm";
 
 async function attachComments(rows: any[]) {
