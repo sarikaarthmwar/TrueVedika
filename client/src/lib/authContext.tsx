@@ -1,14 +1,16 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, MOCK_USERS } from './mockData';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { User } from './mockData';
 import { useLocation } from 'wouter';
+import { apiRequest } from './queryClient';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string) => void;
-  logout: () => void;
   isLoading: boolean;
-  joinInitiative: (initiativeId: string) => void;
-  leaveInitiative: (initiativeId: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  joinInitiative: (initiativeId: string) => Promise<void>;
+  leaveInitiative: (initiativeId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,57 +20,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
-    // Simulate checking session
-    const storedUserId = localStorage.getItem('truvedika_user_id');
-    if (storedUserId) {
-      const foundUser = MOCK_USERS.find(u => u.id === storedUserId);
-      if (foundUser) {
-        setUser(foundUser);
+  const fetchUser = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        setUser(await res.json());
+      } else {
+        setUser(null);
       }
+    } catch {
+      setUser(null);
     }
-    setIsLoading(false);
   }, []);
 
-  const login = (email: string) => {
+  useEffect(() => {
+    fetchUser().finally(() => setIsLoading(false));
+  }, [fetchUser]);
+
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
-    // Simple mock login - finds user by email or defaults to first user
-    setTimeout(() => {
-      const foundUser = MOCK_USERS.find(u => u.email === email) || MOCK_USERS[0];
-      setUser(foundUser);
-      localStorage.setItem('truvedika_user_id', foundUser.id);
-      setIsLoading(false);
+    try {
+      const res = await apiRequest('POST', '/api/auth/login', { email, password });
+      const loggedInUser = await res.json();
+      await fetchUser();
       setLocation('/');
-    }, 800);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const logout = () => {
+  const register = async (name: string, email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      await apiRequest('POST', '/api/auth/register', { name, email, password });
+      await fetchUser();
+      setLocation('/');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    await apiRequest('POST', '/api/auth/logout');
     setUser(null);
-    localStorage.removeItem('truvedika_user_id');
     setLocation('/auth');
   };
 
-  const joinInitiative = (initiativeId: string) => {
+  const joinInitiative = async (initiativeId: string) => {
     if (!user) return;
-    if (user.joinedInitiatives.includes(initiativeId)) return;
-    const updatedUser = { 
-      ...user, 
-      joinedInitiatives: [...user.joinedInitiatives, initiativeId] 
-    };
-    setUser(updatedUser);
+    await apiRequest('POST', `/api/initiatives/${initiativeId}/join`);
+    await fetchUser();
   };
 
-  const leaveInitiative = (initiativeId: string) => {
+  const leaveInitiative = async (initiativeId: string) => {
     if (!user) return;
-    const updatedUser = { 
-      ...user, 
-      joinedInitiatives: user.joinedInitiatives.filter(id => id !== initiativeId) 
-    };
-    setUser(updatedUser);
+    await apiRequest('POST', `/api/initiatives/${initiativeId}/leave`);
+    await fetchUser();
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, joinInitiative, leaveInitiative }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, joinInitiative, leaveInitiative }}>
       {children}
     </AuthContext.Provider>
   );

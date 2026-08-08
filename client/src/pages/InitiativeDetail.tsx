@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRoute, Link } from 'wouter';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { MOCK_INITIATIVES, MOCK_POSTS, Post } from '@/lib/mockData';
+import { Initiative, Post } from '@/lib/mockData';
 import { useAuth } from '@/lib/authContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,47 +9,67 @@ import { PostCard } from '@/components/ui/PostCard';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Users, MapPin, Calendar, ArrowLeft, Image as ImageIcon, Send } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 export default function InitiativeDetail() {
   const [, params] = useRoute('/initiative/:id');
   const { user, joinInitiative, leaveInitiative } = useAuth();
-  const id = params?.id;
-  
-  const initiative = MOCK_INITIATIVES.find(i => i.id === id);
-  const [posts, setPosts] = useState(MOCK_POSTS.filter(p => p.initiativeId === id));
+  const id = params?.id as string;
+  const queryClient = useQueryClient();
   const [newPostContent, setNewPostContent] = useState('');
 
-  if (!initiative) return <div className="p-8">Initiative not found</div>;
+  const { data: initiative, isLoading: loadingInitiative } = useQuery<Initiative>({
+    queryKey: ['/api/initiatives', id],
+    queryFn: async () => {
+      const res = await fetch(`/api/initiatives/${id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load initiative');
+      return res.json();
+    },
+    enabled: !!id,
+  });
 
-  const isJoined = user?.joinedInitiatives.includes(initiative.id);
+  const { data: posts = [] } = useQuery<Post[]>({
+    queryKey: ['/api/initiatives', id, 'posts'],
+    queryFn: async () => {
+      const res = await fetch(`/api/initiatives/${id}/posts`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load posts');
+      return res.json();
+    },
+    enabled: !!id,
+  });
 
-  const handleJoinToggle = () => {
+  const postMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest('POST', `/api/initiatives/${id}/posts`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/initiatives', id, 'posts'] });
+      setNewPostContent('');
+    },
+  });
+
+  if (loadingInitiative) {
+    return <AppLayout><div className="p-8">Loading...</div></AppLayout>;
+  }
+  if (!initiative) return <AppLayout><div className="p-8">Initiative not found</div></AppLayout>;
+
+  const isJoined = user?.joinedInitiatives?.includes(initiative.id);
+
+  const handleJoinToggle = async () => {
     if (isJoined) {
-      leaveInitiative(initiative.id);
+      await leaveInitiative(initiative.id);
     } else {
-      joinInitiative(initiative.id);
+      await joinInitiative(initiative.id);
     }
+    queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] });
   };
 
   const handlePostSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPostContent.trim() || !user) return;
-
-    const newPost: Post = {
-      id: `np-${Date.now()}`,
-      initiativeId: initiative.id,
-      authorId: user.id,
-      authorName: user.name,
-      authorAvatar: user.avatar,
-      content: newPostContent,
-      likes: 0,
-      comments: [],
-      createdAt: 'Just now'
-    };
-
-    setPosts([newPost, ...posts]);
-    setNewPostContent('');
+    postMutation.mutate(newPostContent);
   };
 
   return (
@@ -61,11 +81,10 @@ export default function InitiativeDetail() {
           </Button>
         </Link>
 
-        {/* Hero Section */}
         <div className="relative h-[300px] md:h-[400px] rounded-3xl overflow-hidden mb-8 shadow-xl">
-          <img 
-            src={initiative.image} 
-            alt={initiative.title} 
+          <img
+            src={initiative.image}
+            alt={initiative.title}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -89,8 +108,8 @@ export default function InitiativeDetail() {
                   )}
                 </div>
               </div>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className={`min-w-[120px] ${isJoined ? 'bg-white/20 hover:bg-white/30 text-white border-none' : 'bg-primary hover:bg-primary/90 text-white border-none'}`}
                 onClick={handleJoinToggle}
               >
@@ -101,7 +120,6 @@ export default function InitiativeDetail() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="md:col-span-2 space-y-8">
             <section className="bg-white rounded-2xl p-6 shadow-sm border border-border/50">
               <h2 className="text-xl font-bold mb-3 font-serif">About this Initiative</h2>
@@ -110,7 +128,6 @@ export default function InitiativeDetail() {
               </p>
             </section>
 
-            {/* Create Post */}
             {isJoined && (
               <section className="bg-white rounded-2xl p-6 shadow-sm border border-border/50">
                 <div className="flex gap-4">
@@ -119,8 +136,8 @@ export default function InitiativeDetail() {
                     <AvatarFallback>{user?.name[0]}</AvatarFallback>
                   </Avatar>
                   <form onSubmit={handlePostSubmit} className="flex-1 space-y-3">
-                    <Textarea 
-                      placeholder="Share your journey, updates, or photos..." 
+                    <Textarea
+                      placeholder="Share your journey, updates, or photos..."
                       className="min-h-[100px] resize-none border-border/50 bg-muted/20 focus:bg-white transition-colors"
                       value={newPostContent}
                       onChange={(e) => setNewPostContent(e.target.value)}
@@ -129,8 +146,8 @@ export default function InitiativeDetail() {
                       <Button type="button" variant="ghost" size="sm" className="text-muted-foreground">
                         <ImageIcon className="w-4 h-4 mr-2" /> Add Photo
                       </Button>
-                      <Button type="submit" disabled={!newPostContent.trim()}>
-                        Post <Send className="w-3 h-3 ml-2" />
+                      <Button type="submit" disabled={!newPostContent.trim() || postMutation.isPending}>
+                        {postMutation.isPending ? 'Posting...' : 'Post'} <Send className="w-3 h-3 ml-2" />
                       </Button>
                     </div>
                   </form>
@@ -138,12 +155,11 @@ export default function InitiativeDetail() {
               </section>
             )}
 
-            {/* Posts Feed */}
             <section>
               <h3 className="text-lg font-semibold mb-4">Community Posts</h3>
               {posts.length > 0 ? (
                 <div>
-                  {posts.map(post => (
+                  {posts.map((post) => (
                     <PostCard key={post.id} post={post} />
                   ))}
                 </div>
@@ -155,7 +171,6 @@ export default function InitiativeDetail() {
             </section>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
             <div className="bg-secondary/5 rounded-2xl p-6 border border-secondary/10 sticky top-24">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
@@ -171,7 +186,7 @@ export default function InitiativeDetail() {
               ) : (
                 <p className="text-muted-foreground text-sm">No upcoming events scheduled.</p>
               )}
-              
+
               <div className="mt-6">
                 <h4 className="font-semibold mb-3 text-sm uppercase tracking-wider text-muted-foreground">Community Guidelines</h4>
                 <ul className="text-sm space-y-2 text-muted-foreground list-disc pl-4">

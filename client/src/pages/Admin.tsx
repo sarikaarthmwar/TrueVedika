@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { MOCK_USERS, MOCK_INITIATIVES, User, Initiative } from '@/lib/mockData';
+import { Initiative } from '@/lib/mockData';
 import { useAuth } from '@/lib/authContext';
 import { useLocation } from 'wouter';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,13 +26,54 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin';
+}
 
 export default function Admin() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [initiatives, setInitiatives] = useState<Initiative[]>(MOCK_INITIATIVES);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [formError, setFormError] = useState('');
+  const queryClient = useQueryClient();
+
+  const { data: users = [] } = useQuery<AdminUser[]>({
+    queryKey: ['/api/users'],
+    enabled: user?.role === 'admin',
+  });
+  const { data: initiatives = [] } = useQuery<Initiative[]>({
+    queryKey: ['/api/initiatives'],
+    enabled: user?.role === 'admin',
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest('POST', '/api/users', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      setIsAddUserOpen(false);
+      setFormError('');
+    },
+    onError: (err: any) => setFormError(err.message?.replace(/^\d+:\s*/, '') || 'Failed to create user'),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest('DELETE', `/api/users/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/users'] }),
+  });
+
+  const deleteInitiativeMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest('DELETE', `/api/initiatives/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] }),
+  });
 
   if (user?.role !== 'admin') {
     return (
@@ -50,24 +91,12 @@ export default function Admin() {
   const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newUser: User = {
-      id: `u${users.length + 1}`,
+    createUserMutation.mutate({
       name: formData.get('name') as string,
       email: formData.get('email') as string,
-      role: formData.get('role') as any,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
-      joinedInitiatives: [],
-    };
-    setUsers([...users, newUser]);
-    setIsAddUserOpen(false);
-  };
-
-  const deleteUser = (id: string) => {
-    setUsers(users.filter(u => u.id !== id));
-  };
-
-  const deleteInitiative = (id: string) => {
-    setInitiatives(initiatives.filter(i => i.id !== id));
+      password: formData.get('password') as string,
+      role: formData.get('role') as string,
+    });
   };
 
   return (
@@ -78,7 +107,7 @@ export default function Admin() {
             <h1 className="text-3xl font-serif font-bold text-foreground">Moderation Dashboard</h1>
             <p className="text-muted-foreground">Manage community safety, users, and initiatives.</p>
           </div>
-          
+
           <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -102,15 +131,22 @@ export default function Admin() {
                     <Input id="email" name="email" type="email" required />
                   </div>
                   <div className="grid gap-2">
+                    <Label htmlFor="password">Temporary Password</Label>
+                    <Input id="password" name="password" type="password" minLength={6} required />
+                  </div>
+                  <div className="grid gap-2">
                     <Label htmlFor="role">Role</Label>
                     <select name="role" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
+                  {formError && <p className="text-sm text-destructive">{formError}</p>}
                 </div>
                 <DialogFooter>
-                  <Button type="submit">Create User</Button>
+                  <Button type="submit" disabled={createUserMutation.isPending}>
+                    {createUserMutation.isPending ? 'Creating...' : 'Create User'}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -151,7 +187,7 @@ export default function Admin() {
             <TabsTrigger value="initiatives">Initiatives</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="initiatives" className="mt-6">
             <Card className="glass-morphism">
               <CardHeader>
@@ -189,7 +225,7 @@ export default function Admin() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="text-destructive" onClick={() => deleteInitiative(initiative.id)}>
+                              <DropdownMenuItem className="text-destructive" onClick={() => deleteInitiativeMutation.mutate(initiative.id)}>
                                 <Trash2 className="w-4 h-4 mr-2" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -236,9 +272,9 @@ export default function Admin() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem 
-                                className="text-destructive" 
-                                onClick={() => deleteUser(u.id)}
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => deleteUserMutation.mutate(u.id)}
                                 disabled={u.id === user?.id}
                               >
                                 <Trash2 className="w-4 h-4 mr-2" /> Remove

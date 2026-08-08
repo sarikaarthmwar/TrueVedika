@@ -1,16 +1,155 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, requireAuth, requireAdmin, hashPassword, sanitize } from "./auth";
+import { insertInitiativeSchema } from "@shared/schema";
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  setupAuth(app);
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.get("/api/initiatives", async (_req, res, next) => {
+    try {
+      res.json(await storage.listInitiatives());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get("/api/initiatives/:id", async (req, res, next) => {
+    try {
+      const initiative = await storage.getInitiative(req.params.id);
+      if (!initiative) return res.status(404).json({ message: "Not found" });
+      res.json(initiative);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/initiatives", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertInitiativeSchema.parse(req.body);
+      const initiative = await storage.createInitiative({ ...parsed, creatorId: (req.user as any).id });
+      res.status(201).json(initiative);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Invalid initiative data" });
+    }
+  });
+
+  app.delete("/api/initiatives/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.deleteInitiative(req.params.id);
+      res.json({ message: "Deleted" });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/initiatives/:id/join", requireAuth, async (req, res, next) => {
+    try {
+      await storage.joinInitiative((req.user as any).id, req.params.id);
+      res.json({ message: "Joined" });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/initiatives/:id/leave", requireAuth, async (req, res, next) => {
+    try {
+      await storage.leaveInitiative((req.user as any).id, req.params.id);
+      res.json({ message: "Left" });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get("/api/initiatives/:id/posts", async (req, res, next) => {
+    try {
+      res.json(await storage.listPostsByInitiative(req.params.id));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/initiatives/:id/posts", requireAuth, async (req, res, next) => {
+    try {
+      const { content, image } = req.body || {};
+      if (!content || !String(content).trim()) return res.status(400).json({ message: "Content is required" });
+      const post = await storage.createPost({
+        initiativeId: req.params.id,
+        authorId: (req.user as any).id,
+        content,
+        image,
+      });
+      res.status(201).json(post);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get("/api/feed", requireAuth, async (req, res, next) => {
+    try {
+      const ids = await storage.getJoinedInitiativeIds((req.user as any).id);
+      res.json(await storage.listFeedPosts(ids));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get("/api/posts/:id/comments", async (req, res, next) => {
+    try {
+      res.json(await storage.listCommentsByPost(req.params.id));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/posts/:id/comments", requireAuth, async (req, res, next) => {
+    try {
+      const { content } = req.body || {};
+      if (!content || !String(content).trim()) return res.status(400).json({ message: "Content is required" });
+      const comment = await storage.createComment({ postId: req.params.id, authorId: (req.user as any).id, content });
+      res.status(201).json(comment);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get("/api/users", requireAdmin, async (_req, res, next) => {
+    try {
+      res.json((await storage.listUsers()).map(sanitize));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const { name, email, password, role } = req.body || {};
+      if (!name || !email || !password) return res.status(400).json({ message: "Name, email, password required" });
+      const existing = await storage.getUserByEmail(email);
+      if (existing) return res.status(400).json({ message: "Email already in use" });
+      const hashed = await hashPassword(password);
+      const user = await storage.createUser({
+        name,
+        email,
+        password: hashed,
+        role: role === "admin" ? "admin" : "user",
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
+      });
+      res.status(201).json(sanitize(user));
+    } catch (err: any) {
+      res.status(400).json({ message: err.message || "Failed to create user" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAdmin, async (req, res, next) => {
+    try {
+      await storage.deleteUser(req.params.id);
+      res.json({ message: "Deleted" });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   return httpServer;
 }

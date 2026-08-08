@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { MOCK_INITIATIVES, Initiative } from '@/lib/mockData';
+import { Initiative } from '@/lib/mockData';
 import { InitiativeCard } from '@/components/ui/InitiativeCard';
 import { Input } from '@/components/ui/input';
 import { Search, Plus } from 'lucide-react';
@@ -17,17 +17,39 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 export default function Explore() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [localInitiatives, setLocalInitiatives] = useState<Initiative[]>(MOCK_INITIATIVES);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [formError, setFormError] = useState('');
+  const queryClient = useQueryClient();
 
-  const categories = Array.from(new Set(localInitiatives.map(i => i.category)));
+  const { data: initiatives = [], isLoading } = useQuery<Initiative[]>({
+    queryKey: ['/api/initiatives'],
+  });
 
-  const filteredInitiatives = localInitiatives.filter(i => {
-    const matchesSearch = i.title.toLowerCase().includes(search.toLowerCase()) || 
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest('POST', '/api/initiatives', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] });
+      setIsCreateOpen(false);
+      setFormError('');
+    },
+    onError: (err: any) => {
+      setFormError(err.message?.replace(/^\d+:\s*/, '') || 'Failed to create initiative');
+    },
+  });
+
+  const categories = Array.from(new Set(initiatives.map((i) => i.category)));
+
+  const filteredInitiatives = initiatives.filter((i) => {
+    const matchesSearch = i.title.toLowerCase().includes(search.toLowerCase()) ||
                           i.description.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory ? i.category === selectedCategory : true;
     return matchesSearch && matchesCategory;
@@ -36,18 +58,13 @@ export default function Explore() {
   const handleCreateInitiative = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newInitiative: Initiative = {
-      id: `temp-${Date.now()}`,
+    createMutation.mutate({
       title: formData.get('title') as string,
       description: formData.get('description') as string,
-      category: formData.get('category') as any,
-      participantsCount: 1,
-      image: 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=1000',
-      nextEvent: 'Just Started',
+      category: formData.get('category') as string,
       location: formData.get('location') as string,
-    };
-    setLocalInitiatives(prev => [newInitiative, ...prev]);
-    setIsCreateOpen(false);
+      image: 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=1000',
+    });
   };
 
   return (
@@ -105,9 +122,12 @@ export default function Explore() {
                     <Label htmlFor="description">Description</Label>
                     <Textarea id="description" name="description" placeholder="What is this initiative about?" required />
                   </div>
+                  {formError && <p className="text-sm text-destructive">{formError}</p>}
                 </div>
                 <DialogFooter>
-                  <Button type="submit" className="w-full">Create Initiative</Button>
+                  <Button type="submit" className="w-full" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? 'Creating...' : 'Create Initiative'}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -116,14 +136,14 @@ export default function Explore() {
 
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex flex-wrap gap-2">
-            <Button 
+            <Button
               variant={selectedCategory === null ? 'default' : 'outline'}
               onClick={() => setSelectedCategory(null)}
               className="rounded-full"
             >
               All
             </Button>
-            {categories.map(category => (
+            {categories.map((category) => (
               <Button
                 key={category}
                 variant={selectedCategory === category ? 'default' : 'outline'}
@@ -134,11 +154,11 @@ export default function Explore() {
               </Button>
             ))}
           </div>
-          
+
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search initiatives..." 
+            <Input
+              placeholder="Search initiatives..."
               className="pl-9 rounded-full bg-white shadow-sm border-border"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -146,13 +166,17 @@ export default function Explore() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredInitiatives.map(initiative => (
-            <InitiativeCard key={initiative.id} initiative={initiative} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="text-center py-20 text-muted-foreground">Loading initiatives...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredInitiatives.map((initiative) => (
+              <InitiativeCard key={initiative.id} initiative={initiative} />
+            ))}
+          </div>
+        )}
 
-        {filteredInitiatives.length === 0 && (
+        {!isLoading && filteredInitiatives.length === 0 && (
           <div className="text-center py-20">
             <p className="text-muted-foreground">No initiatives found matching your criteria.</p>
             <Button variant="link" onClick={() => { setSearch(''); setSelectedCategory(null); }}>
