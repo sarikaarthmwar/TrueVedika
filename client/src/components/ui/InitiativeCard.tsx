@@ -21,10 +21,12 @@ export function InitiativeCard({ initiative }: InitiativeCardProps) {
 
   const handleJoin = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (isJoined) return;
-    if (!user) {
-      setShowAuthPrompt(true);
-      return;
+if (isJoined) return;
+if (!user) {
+  setShowAuthPrompt(true);
+  return;
+}
+await joinInitiative(initiative.id);
     }
     await joinInitiative(initiative.id);
   };

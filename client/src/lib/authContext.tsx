@@ -6,8 +6,8 @@ import { apiRequest } from './queryClient';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string, redirectTo?: string | null) => Promise<void>;
-  register: (name: string, email: string, password: string, redirectTo?: string | null) => Promise<void>;
+login: (email: string, password: string, redirectTo?: string | null) => Promise<void>;
+register: (name: string, email: string, password: string, redirectTo?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   joinInitiative: (initiativeId: string) => Promise<void>;
   leaveInitiative: (initiativeId: string) => Promise<void>;
@@ -37,26 +37,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchUser().finally(() => setIsLoading(false));
   }, [fetchUser]);
 
-  // redirectTo defaults to '/' (used by the full-page /auth screen).
-  // Pass `null` to stay on the current page (used by the in-page auth prompt dialog).
-  const login = async (email: string, password: string, redirectTo: string | null = '/') => {
+// redirectTo defaults to '/' (used by the full-page /auth screen).
+// Pass `null` to stay on the current page (used by the in-page auth prompt dialog).
+const login = async (email: string, password: string, redirectTo: string | null = '/') => {
     setIsLoading(true);
     try {
       const res = await apiRequest('POST', '/api/auth/login', { email, password });
       const loggedInUser = await res.json();
       await fetchUser();
-      if (redirectTo) setLocation(redirectTo);
+if (redirectTo) setLocation(redirectTo);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const register = async (name: string, email: string, password: string, redirectTo: string | null = '/') => {
+const register = async (name: string, email: string, password: string, redirectTo: string | null = '/') => {
     setIsLoading(true);
     try {
       await apiRequest('POST', '/api/auth/register', { name, email, password });
       await fetchUser();
-      if (redirectTo) setLocation(redirectTo);
+if (redirectTo) setLocation(redirectTo);
     } finally {
       setIsLoading(false);
     }

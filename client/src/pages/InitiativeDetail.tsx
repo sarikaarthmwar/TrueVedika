@@ -60,24 +60,22 @@ export default function InitiativeDetail() {
   if (!initiative) return <AppLayout><div className="p-8">Initiative not found</div></AppLayout>;
 
   const isJoined = user?.joinedInitiatives?.includes(initiative.id);
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : `/initiative/${initiative.id}`;
+const shareUrl = typeof window !== 'undefined' ? window.location.href : `/initiative/${initiative.id}`;
 
   const handleJoinToggle = async () => {
     if (isJoined) {
       await leaveInitiative(initiative.id);
-      queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] });
-      return;
-    }
-    if (!user) {
-      setShowAuthPrompt(true);
-      return;
-    }
-    await joinInitiative(initiative.id);
-    queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] });
-  };
-
-  const handleAuthSuccess = async () => {
-    await joinInitiative(initiative.id);
+if (isJoined) {
+  await leaveInitiative(initiative.id);
+  queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] });
+  return;
+}
+if (!user) {
+  setShowAuthPrompt(true);
+  return;
+}
+await joinInitiative(initiative.id);
+queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] });
     queryClient.invalidateQueries({ queryKey: ['/api/initiatives'] });
   };
 
@@ -123,25 +121,25 @@ export default function InitiativeDetail() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/30"
-                  onClick={() => setShowShare(true)}
-                  data-testid="button-share-initiative"
-                >
-                  <Share2 className="w-4 h-4 mr-2" /> Share
-                </Button>
-                <Button
-                  size="lg"
-                  className={`min-w-[120px] ${isJoined ? 'bg-white/20 hover:bg-white/30 text-white border-none' : 'bg-primary hover:bg-primary/90 text-white border-none'}`}
-                  onClick={handleJoinToggle}
-                  data-testid="button-join-toggle"
-                >
-                  {isJoined ? 'Leave' : 'Join Community'}
-                </Button>
-              </div>
+<div className="flex items-center gap-2">
+  <Button
+    size="lg"
+    variant="outline"
+    className="bg-white/10 hover:bg-white/20 text-white border-white/30"
+    onClick={() => setShowShare(true)}
+    data-testid="button-share-initiative"
+  >
+    <Share2 className="w-4 h-4 mr-2" /> Share
+  </Button>
+  <Button
+    size="lg"
+    className={`min-w-[120px] ${isJoined ? 'bg-white/20 hover:bg-white/30 text-white border-none' : 'bg-primary hover:bg-primary/90 text-white border-none'}`}
+    onClick={handleJoinToggle}
+    data-testid="button-join-toggle"
+  >
+    {isJoined ? 'Leave' : 'Join Community'}
+  </Button>
+</div>
             </div>
           </div>
         </div>

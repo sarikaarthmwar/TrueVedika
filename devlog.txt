@@ -1,0 +1,21 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+5:15:39 PM [express] serving on port 5000
+(node:4910) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+5:16:34 PM [express] GET /api/auth/me 200 in 1529ms :: {"id":"f810fd73-6107-42fa-b5dc-c39494375bf9","name":"sarika harale","email":"sari.kaaa@gmail.com","avatar":"https://api.dicebear.com/7.x/initials/svg?seed=sarika%20harale","role":"admin","createdAt":"2026-08-08T15:50:37.882Z","joinedInitiatives":["6c4c99e1-0e0a-4fa0-a7a7-938848840656"]}
+5:16:36 PM [express] GET /api/initiatives 304 in 1271ms :: [{"id":"6c4c99e1-0e0a-4fa0-a7a7-938848840656","title":"7 day Morning Habit Change","description":"lets join 7 day Habit change with me to start morning diffrently","category":"Wellness","image":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=1000","location":"Remote","nextEvent":null,"creatorId":"f810fd73-6107-42fa-b5dc-c39494375bf9","createdAt":"2026-08-08T15:53:59.517Z","participantsCount":1}]
+5:16:36 PM [express] GET /api/feed 304 in 1529ms :: []
+5:17:17 PM [express] GET /api/initiatives/6c4c99e1-0e0a-4fa0-a7a7-938848840656/posts 200 in 2292ms :: []
+5:17:18 PM [express] GET /api/initiatives/6c4c99e1-0e0a-4fa0-a7a7-938848840656 200 in 3055ms :: {"id":"6c4c99e1-0e0a-4fa0-a7a7-938848840656","title":"7 day Morning Habit Change","description":"lets join 7 day Habit change with me to start morning diffrently","category":"Wellness","image":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=1000","location":"Remote","nextEvent":null,"creatorId":"f810fd73-6107-42fa-b5dc-c39494375bf9","createdAt":"2026-08-08T15:53:59.517Z","participantsCount":1}
+5:20:02 PM [express] POST /api/initiatives 201 in 7194ms :: {"id":"ae40d3d7-63d3-48da-82e4-b7907557f46b","title":"Gita for Life","description":"Read less. Understand deeply. Live consciously.\nWeekly Gita Circle — 60 minutes\n\nShloka of the Week – Sanskrit + pronunciation\nSimple meaning – no complicated Sanskrit/philosophy\nStory/context – what was happening between Krishna & Arjuna?\nToday's life – “Where do we face this situation?”\nReflection – one question for everyone\nPractice for the week – one small action","category":"Mindfulness","image":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=1000","location":"Remote","nextEvent":null,"creatorId":"f810fd73-6107-42fa-b5dc-c39494375bf9","createdAt":"2026-08-08T17:20:00.255Z"}
+5:20:03 PM [express] GET /api/initiatives 200 in 1090ms :: [{"id":"ae40d3d7-63d3-48da-82e4-b7907557f46b","title":"Gita for Life","description":"Read less. Understand deeply. Live consciously.\nWeekly Gita Circle — 60 minutes\n\nShloka of the Week – Sanskrit + pronunciation\nSimple meaning – no complicated Sanskrit/philosophy\nStory/context – what was happening between Krishna & Arjuna?\nToday's life – “Where do we face this situation?”\nReflection – one question for everyone\nPractice for the week – one small action","category":"Mindfulness","image":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=1000","location":"Remote","nextEvent":null,"creatorId":"f810fd73-6107-42fa-b5dc-c39494375bf9","createdAt":"2026-08-08T17:20:00.255Z","participantsCount":1},{"id":"6c4c99e1-0e0a-4fa0-a7a7-938848840656","title":"7 day Morning Habit Change","description":"lets join 7 day Habit change with me to start morning diffrently","category":"Wellness","image":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=1000","location":"Remote","nextEvent":null,"creatorId":"f810fd73-6107-42fa-b5dc-c39494375bf9","createdAt":"2026-08-08T15:53:59.517Z","participantsCount":1}]

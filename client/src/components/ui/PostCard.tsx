@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Post, Comment, MOCK_USERS } from '@/lib/mockData';
+import { Post, Comment } from '@/lib/mockData';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Heart, MessageCircle, Share2, MoreHorizontal, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/lib/authContext';
+import { apiRequest } from '@/lib/queryClient';
 
 interface PostCardProps {
   post: Post;
@@ -13,33 +15,31 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, initiativeName }: PostCardProps) {
+  const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes);
   const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState<Comment[]>(post.comments);
+  const [comments, setComments] = useState<Comment[]>(post.comments || []);
   const [newComment, setNewComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLike = () => {
     setIsLiked(!isLiked);
-    setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+    setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1));
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
-
-    const comment: Comment = {
-      id: `nc-${Date.now()}`,
-      postId: post.id,
-      authorId: 'u1', // Mock current user
-      authorName: 'Sarah Chen',
-      authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
-      content: newComment,
-      createdAt: 'Just now'
-    };
-
-    setComments([...comments, comment]);
-    setNewComment('');
+    if (!newComment.trim() || !user) return;
+    setIsSubmitting(true);
+    try {
+      const res = await apiRequest('POST', `/api/posts/${post.id}/comments`, { content: newComment });
+      const created = await res.json();
+      setComments([...comments, { ...created, authorName: user.name, authorAvatar: user.avatar }]);
+      setNewComment('');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -82,9 +82,9 @@ export function PostCard({ post, initiativeName }: PostCardProps) {
         <CardFooter className="p-4 border-t flex flex-col gap-4">
           <div className="flex items-center justify-between w-full">
             <div className="flex gap-1">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className={`gap-2 ${isLiked ? 'text-red-500 hover:text-red-600' : 'text-muted-foreground hover:text-foreground'}`}
                 onClick={handleLike}
                 data-testid={`button-like-${post.id}`}
@@ -92,9 +92,9 @@ export function PostCard({ post, initiativeName }: PostCardProps) {
                 <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
                 <span className="text-xs">{likesCount}</span>
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="gap-2 text-muted-foreground hover:text-foreground"
                 onClick={() => setShowComments(!showComments)}
                 data-testid={`button-comment-${post.id}`}
@@ -110,7 +110,7 @@ export function PostCard({ post, initiativeName }: PostCardProps) {
 
           <AnimatePresence>
             {showComments && (
-              <motion.div 
+              <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -133,29 +133,31 @@ export function PostCard({ post, initiativeName }: PostCardProps) {
                     </div>
                   ))}
                 </div>
-                
-                <form onSubmit={handleCommentSubmit} className="flex gap-2 items-end pt-2">
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" />
-                    <AvatarFallback>SC</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 relative">
-                    <Textarea 
-                      placeholder="Add a comment..." 
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      className="min-h-[40px] pr-10 resize-none py-2"
-                    />
-                    <Button 
-                      type="submit" 
-                      size="icon" 
-                      className="absolute right-1 bottom-1 h-7 w-7"
-                      disabled={!newComment.trim()}
-                    >
-                      <Send className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </form>
+
+                {user && (
+                  <form onSubmit={handleCommentSubmit} className="flex gap-2 items-end pt-2">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={user.avatar} />
+                      <AvatarFallback>{user.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 relative">
+                      <Textarea
+                        placeholder="Add a comment..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        className="min-h-[40px] pr-10 resize-none py-2"
+                      />
+                      <Button
+                        type="submit"
+                        size="icon"
+                        className="absolute right-1 bottom-1 h-7 w-7"
+                        disabled={!newComment.trim() || isSubmitting}
+                      >
+                        <Send className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
