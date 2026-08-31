@@ -5,42 +5,26 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/authContext";
 import NotFound from "@/pages/not-found";
-
 import AuthPage from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import Explore from "@/pages/Explore";
 import InitiativeDetail from "@/pages/InitiativeDetail";
 import Admin from "@/pages/Admin";
+import ShopAdmin from "@/pages/ShopAdmin";
+import Shop from "@/pages/Shop";
 import Landing from "@/pages/Landing";
-
 function Router() {
   const { user } = useAuth();
-
-  return (
-    <Switch>
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/">
-        {() => user ? <Dashboard /> : <Landing />}
-      </Route>
-      <Route path="/explore" component={Explore} />
-      <Route path="/initiative/:id" component={InitiativeDetail} />
-      <Route path="/admin" component={Admin} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+  return <Switch>
+    <Route path="/auth" component={AuthPage} />
+    <Route path="/shop" component={Shop} />
+    <Route path="/admin/shop" component={ShopAdmin} />
+    <Route path="/"><>{user ? <Dashboard /> : <Landing />}</></Route>
+    <Route path="/explore" component={Explore} />
+    <Route path="/initiative/:id" component={InitiativeDetail} />
+    <Route path="/admin" component={Admin} />
+    <Route component={NotFound} />
+  </Switch>;
 }
-
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-}
-
+function App() { return <QueryClientProvider client={queryClient}><AuthProvider><TooltipProvider><Toaster /><Router /></TooltipProvider></AuthProvider></QueryClientProvider>; }
 export default App;
