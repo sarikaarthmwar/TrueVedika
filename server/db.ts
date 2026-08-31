@@ -6,9 +6,11 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
 }
 
+const isSupabase = /supabase\.(co|com)|pooler\.supabase\./i.test(process.env.DATABASE_URL);
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL.includes("neon.tech") ? { rejectUnauthorized: false } : undefined,
+  ssl: isSupabase || process.env.DATABASE_URL.includes("neon.tech") ? { rejectUnauthorized: false } : undefined,
   max: 5,
 });
 
