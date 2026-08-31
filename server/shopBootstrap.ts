@@ -10,7 +10,7 @@ export async function ensureShopProductsTable() {
       category text NOT NULL,
       affiliate_url text NOT NULL,
       clicks integer NOT NULL DEFAULT 0,
-      created_at timestamp NOT NULL DEFAULT now()
+      created_at timestamp with time zone NOT NULL DEFAULT now()
     )
   `));
 }
