@@ -5,11 +5,7 @@ import { setupAuth, requireAuth, requireAdmin, hashPassword, sanitize } from "./
 import { insertInitiativeSchema } from "../shared/schema.js";
 
 function decodeHtml(value: string) {
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
+  return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
 }
 
 function extractMeta(html: string, key: string) {
@@ -26,8 +22,7 @@ function extractAmazonImage(html: string) {
 }
 
 function extractMarkdownImage(text: string) {
-  const image = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)(?:\s+[^)]*)?\)/i.exec(text)?.[1] || "";
-  return decodeHtml(image);
+  return decodeHtml(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)(?:\s+[^)]*)?\)/i.exec(text)?.[1] || "");
 }
 
 function extractAmazonImageUrl(text: string) {
@@ -46,12 +41,11 @@ async function readProductPage(url: string) {
     signal: AbortSignal.timeout(10000)
   });
   if (!response.ok) throw new Error(`Could not read product page (${response.status})`);
-  return { html: await response.text(), finalUrl: response.url };
+  return response.text();
 }
 
 async function readAmazonShortLink(url: string) {
-  const readerUrl = `https://r.jina.ai/${url}`;
-  const response = await fetch(readerUrl, {
+  const response = await fetch(`https://r.jina.ai/${url}`, {
     headers: {
       "User-Agent": "TrueVedikaShop/1.0",
       "X-Engine": "browser",
@@ -73,10 +67,9 @@ async function unfurlProduct(url: string) {
   let html = "";
   let readerContent = "";
   try {
-    const page = await readProductPage(url);
-    html = page.html;
+    html = await readProductPage(url);
   } catch (directError) {
-    if (hostname === "link.amazon" || hostname === "www.link.amazon" || hostname === "amzn.to" || hostname === "www.amzn.to") {
+    if (["link.amazon", "www.link.amazon", "amzn.to", "www.amzn.to"].includes(hostname)) {
       readerContent = await readAmazonShortLink(url);
     } else {
       throw directError;
@@ -112,7 +105,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/shop/products/:id", requireAdmin, async (req, res, next) => { try { await storage.deleteShopProduct(req.params.id); res.json({ message: "Deleted" }); } catch (err) { next(err); } });
 
   app.get("/api/users", requireAdmin, async (_req, res, next) => { try { res.json((await storage.listUsers()).map(sanitize)); } catch (err) { next(err); } });
-  app.post("/api/users", requireAdmin, async (req, res) => { try { const { name, email, password, role } = req.body || {}; if (!name || !email || !password) return res.status(400).json({ message: "Name, email, password required" }); if (await storage.getUserByEmail(email)) return res.status(400).json({ message: "Email already in use" }); const user = await storage.createUser({ name, email, password: await hashPassword(password), role: role === "admin" ? "admin" : "user", avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}` }); res.status(201).json(sanitize(user)); res.status(201).json(sanitize(user)); } catch (err: any) { res.status(400).json({ message: err.message || "Failed to create user" }); } });
+  app.post("/api/users", requireAdmin, async (req, res) => { try { const { name, email, password, role } = req.body || {}; if (!name || !email || !password) return res.status(400).json({ message: "Name, email, password required" }); if (await storage.getUserByEmail(email)) return res.status(400).json({ message: "Email already in use" }); const user = await storage.createUser({ name, email, password: await hashPassword(password), role: role === "admin" ? "admin" : "user", avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}` }); res.status(201).json(sanitize(user)); } catch (err: any) { res.status(400).json({ message: err.message || "Failed to create user" }); } });
   app.delete("/api/users/:id", requireAdmin, async (req, res, next) => { try { await storage.deleteUser(req.params.id); res.json({ message: "Deleted" }); } catch (err) { next(err); } });
   return httpServer;
 }
