@@ -25,18 +25,69 @@ function extractAmazonImage(html: string) {
   return decodeHtml(image);
 }
 
+function extractMarkdownImage(text: string) {
+  const image = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)(?:\s+[^)]*)?\)/i.exec(text)?.[1] || "";
+  return decodeHtml(image);
+}
+
+function extractAmazonImageUrl(text: string) {
+  const image = /https?:\/\/(?:m\.media-amazon\.com|images-na\.ssl-images-amazon\.com|images\.amazon\.com)\/[^\s)]+/i.exec(text)?.[0] || "";
+  return decodeHtml(image.replace(/[),]+$/, ""));
+}
+
+async function readProductPage(url: string) {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-IN,en;q=0.9"
+    },
+    redirect: "follow",
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!response.ok) throw new Error(`Could not read product page (${response.status})`);
+  return { html: await response.text(), finalUrl: response.url };
+}
+
+async function readAmazonShortLink(url: string) {
+  const readerUrl = `https://r.jina.ai/${url}`;
+  const response = await fetch(readerUrl, {
+    headers: {
+      "User-Agent": "TrueVedikaShop/1.0",
+      "X-Engine": "browser",
+      "X-No-Cache": "true",
+      "X-Base": "true"
+    },
+    signal: AbortSignal.timeout(20000)
+  });
+  if (!response.ok) throw new Error(`Could not read Amazon short link (${response.status})`);
+  return response.text();
+}
+
 async function unfurlProduct(url: string) {
   const parsed = new URL(url);
-  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Only web links are supported');
+  if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Only web links are supported");
   const hostname = parsed.hostname.toLowerCase();
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname.endsWith('.local')) throw new Error('Invalid product link');
-  const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 TrueVedikaShop/1.0' }, redirect: 'follow', signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error(`Could not read product page (${response.status})`);
-  const html = await response.text();
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" || hostname.endsWith(".local")) throw new Error("Invalid product link");
+
+  let html = "";
+  let readerContent = "";
+  try {
+    const page = await readProductPage(url);
+    html = page.html;
+  } catch (directError) {
+    if (hostname === "link.amazon" || hostname === "www.link.amazon" || hostname === "amzn.to" || hostname === "www.amzn.to") {
+      readerContent = await readAmazonShortLink(url);
+    } else {
+      throw directError;
+    }
+  }
+
   const pageTitle = /<title[^>]*>([^<]+)<\/title>/i.exec(html)?.[1] || "";
-  const name = extractMeta(html, 'og:title') || extractMeta(html, 'twitter:title') || decodeHtml(pageTitle) || 'TrueVedika Pick';
-  const image = extractMeta(html, 'og:image') || extractMeta(html, 'twitter:image') || extractAmazonImage(html);
-  if (!image) throw new Error('This retailer did not provide a product image. Please send a product link with a visible image.');
+  const readerTitle = /^#\s+(.+)$/m.exec(readerContent)?.[1] || "";
+  const name = extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || decodeHtml(pageTitle) || readerTitle || "TrueVedika Pick";
+  const image = extractMeta(html, "og:image") || extractMeta(html, "twitter:image") || extractAmazonImage(html) || extractMarkdownImage(readerContent) || extractAmazonImageUrl(readerContent);
+  if (!image) throw new Error("This retailer did not provide a product image. Please send a product link with a visible image.");
   return { name, image };
 }
 
@@ -55,13 +106,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/posts/:id/comments", requireAuth, async (req, res, next) => { try { const { content } = req.body || {}; if (!content || !String(content).trim()) return res.status(400).json({ message: "Content is required" }); res.status(201).json(await storage.createComment({ postId: req.params.id, authorId: (req.user as any).id, content })); } catch (err) { next(err); } });
 
   app.get("/api/shop/products", async (_req, res, next) => { try { res.json(await storage.listShopProducts()); } catch (err) { next(err); } });
-  app.get("/api/shop/products/:id/click", async (req, res, next) => { try { const product = await storage.getShopProduct(req.params.id); if (!product) return res.status(404).send('Product not found'); await storage.incrementShopClick(req.params.id); res.redirect(product.affiliateUrl); } catch (err) { next(err); } });
+  app.get("/api/shop/products/:id/click", async (req, res, next) => { try { const product = await storage.getShopProduct(req.params.id); if (!product) return res.status(404).send("Product not found"); await storage.incrementShopClick(req.params.id); res.redirect(product.affiliateUrl); } catch (err) { next(err); } });
   app.get("/api/shop/admin", requireAdmin, async (_req, res, next) => { try { res.json({ products: await storage.listShopProducts(), summary: await storage.shopSummary() }); } catch (err) { next(err); } });
-  app.post("/api/shop/products", requireAdmin, async (req, res) => { try { const { affiliateUrl, category } = req.body || {}; if (!affiliateUrl || !category) return res.status(400).json({ message: 'Affiliate link and category are required' }); const meta = await unfurlProduct(String(affiliateUrl)); const product = await storage.createShopProduct({ affiliateUrl: String(affiliateUrl), category: String(category), ...meta }); res.status(201).json(product); } catch (err: any) { res.status(400).json({ message: err.message || 'Could not add product' }); } });
-  app.delete("/api/shop/products/:id", requireAdmin, async (req, res, next) => { try { await storage.deleteShopProduct(req.params.id); res.json({ message: 'Deleted' }); } catch (err) { next(err); } });
+  app.post("/api/shop/products", requireAdmin, async (req, res) => { try { const { affiliateUrl, category } = req.body || {}; if (!affiliateUrl || !category) return res.status(400).json({ message: "Affiliate link and category are required" }); const meta = await unfurlProduct(String(affiliateUrl)); const product = await storage.createShopProduct({ affiliateUrl: String(affiliateUrl), category: String(category), ...meta }); res.status(201).json(product); } catch (err: any) { res.status(400).json({ message: err.message || "Could not add product" }); } });
+  app.delete("/api/shop/products/:id", requireAdmin, async (req, res, next) => { try { await storage.deleteShopProduct(req.params.id); res.json({ message: "Deleted" }); } catch (err) { next(err); } });
 
   app.get("/api/users", requireAdmin, async (_req, res, next) => { try { res.json((await storage.listUsers()).map(sanitize)); } catch (err) { next(err); } });
-  app.post("/api/users", requireAdmin, async (req, res) => { try { const { name, email, password, role } = req.body || {}; if (!name || !email || !password) return res.status(400).json({ message: "Name, email, password required" }); if (await storage.getUserByEmail(email)) return res.status(400).json({ message: "Email already in use" }); const user = await storage.createUser({ name, email, password: await hashPassword(password), role: role === "admin" ? "admin" : "user", avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}` }); res.status(201).json(sanitize(user)); } catch (err: any) { res.status(400).json({ message: err.message || "Failed to create user" }); } });
+  app.post("/api/users", requireAdmin, async (req, res) => { try { const { name, email, password, role } = req.body || {}; if (!name || !email || !password) return res.status(400).json({ message: "Name, email, password required" }); if (await storage.getUserByEmail(email)) return res.status(400).json({ message: "Email already in use" }); const user = await storage.createUser({ name, email, password: await hashPassword(password), role: role === "admin" ? "admin" : "user", avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}` }); res.status(201).json(sanitize(user)); res.status(201).json(sanitize(user)); } catch (err: any) { res.status(400).json({ message: err.message || "Failed to create user" }); } });
   app.delete("/api/users/:id", requireAdmin, async (req, res, next) => { try { await storage.deleteUser(req.params.id); res.json({ message: "Deleted" }); } catch (err) { next(err); } });
   return httpServer;
 }
