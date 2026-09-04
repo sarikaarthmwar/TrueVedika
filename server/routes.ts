@@ -17,8 +17,7 @@ function extractMeta(html: string, key: string) {
 
 function extractAmazonImage(html: string) {
   const landingImage = /<img\b[^>]*\bid=["']landingImage["'][^>]*>/i.exec(html)?.[0] || "";
-  const image = /(?:data-old-hires|src)=['"]([^'"]+)['"]/i.exec(landingImage)?.[1] || "";
-  return decodeHtml(image);
+  return decodeHtml(/(?:data-old-hires|src)=['"]([^'"]+)['"]/i.exec(landingImage)?.[1] || "");
 }
 
 function extractMarkdownImage(text: string) {
@@ -30,18 +29,23 @@ function extractAmazonImageUrl(text: string) {
   return decodeHtml(image.replace(/[),]+$/, ""));
 }
 
-async function readProductPage(url: string) {
+function extractAsin(url: string, text = "") {
+  const source = `${url}\n${text}`;
+  return /(?:\/dp\/|\/gp\/product\/|ASIN[=:]\s*)([A-Z0-9]{10})(?:\b|\/)/i.exec(source)?.[1]?.toUpperCase() || "";
+}
+
+async function fetchText(url: string, timeout = 15000) {
   const response = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8",
       "Accept-Language": "en-IN,en;q=0.9"
     },
     redirect: "follow",
-    signal: AbortSignal.timeout(10000)
+    signal: AbortSignal.timeout(timeout)
   });
-  if (!response.ok) throw new Error(`Could not read product page (${response.status})`);
-  return { html: await response.text(), finalUrl: response.url };
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return { text: await response.text(), finalUrl: response.url };
 }
 
 async function readAmazonShortLink(url: string) {
@@ -49,40 +53,25 @@ async function readAmazonShortLink(url: string) {
   const code = parsed.pathname.replace(/^\/+/, "");
   if (!code || !/^[A-Za-z0-9_-]+$/.test(code)) throw new Error("Invalid Amazon short link");
 
-  // link.amazon is a redirect service. In server environments Amazon's first hop
-  // can return a bot-protection response. The redirect target used by these links
-  // is amzlinks.in/<code>, which is the useful page to read for metadata.
+  // Amazon's link.amazon URLs are redirect-only. Some serverless fetchers receive
+  // a bot/app hand-off instead of the product page. Try the redirect host and a
+  // reader proxy that follows the complete redirect chain and returns page text.
   const candidates = [
     `https://amzlinks.in/${code}`,
-    `https://r.jina.ai/https://amzlinks.in/${code}`,
-    `https://r.jina.ai/${url}`
+    `https://r.jina.ai/${url}`,
+    `https://r.jina.ai/https://amzlinks.in/${code}`
   ];
 
-  let lastStatus = 0;
   let lastError: unknown;
   for (const candidate of candidates) {
     try {
-      const response = await fetch(candidate, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 TrueVedikaShop/1.0",
-          "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8"
-        },
-        redirect: "follow",
-        signal: AbortSignal.timeout(15000)
-      });
-      lastStatus = response.status;
-      if (!response.ok) {
-        lastError = new Error(`HTTP ${response.status}`);
-        continue;
-      }
-      const text = await response.text();
-      if (text.trim()) return { html: text, finalUrl: response.url };
+      const page = await fetchText(candidate);
+      if (page.text.trim()) return page;
     } catch (error) {
       lastError = error;
     }
   }
-
-  throw new Error(`Could not resolve Amazon short link (${lastStatus || "network error"})`);
+  throw new Error(lastError instanceof Error ? lastError.message : "Could not resolve Amazon short link");
 }
 
 async function unfurlProduct(url: string) {
@@ -92,26 +81,32 @@ async function unfurlProduct(url: string) {
   if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0" || hostname.endsWith(".local")) throw new Error("Invalid product link");
 
   let html = "";
+  let finalUrl = url;
   let readerContent = "";
+  const isAmazonShort = ["link.amazon", "www.link.amazon", "amzn.to", "www.amzn.to"].includes(hostname);
+
   try {
-    const page = await readProductPage(url);
-    html = page.html;
+    const page = await fetchText(url, 12000);
+    html = page.text;
+    finalUrl = page.finalUrl || url;
   } catch (directError) {
-    if (["link.amazon", "www.link.amazon", "amzn.to", "www.amzn.to"].includes(hostname)) {
-      const page = await readAmazonShortLink(url);
-      html = page.html;
-      readerContent = page.html;
-    } else {
-      throw directError;
-    }
+    if (!isAmazonShort) throw directError;
+    const page = await readAmazonShortLink(url);
+    html = page.text;
+    finalUrl = page.finalUrl || url;
+    readerContent = page.text;
   }
 
-  const pageTitle = /<title[^>]*>([^<]+)<\/title>/i.exec(html)?.[1] || "";
-  const readerTitle = /^#\s+(.+)$/m.exec(readerContent)?.[1] || "";
-  const name = extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || decodeHtml(pageTitle) || readerTitle || "TrueVedika Pick";
+  const pageTitle = decodeHtml(/<title[^>]*>([^<]+)<\/title>/i.exec(html)?.[1] || "");
+  const readerTitle = decodeHtml(/^#\s+(.+)$/m.exec(readerContent)?.[1] || "");
+  const name = extractMeta(html, "og:title") || extractMeta(html, "twitter:title") || pageTitle || readerTitle || "TrueVedika Pick";
   const image = extractMeta(html, "og:image") || extractMeta(html, "twitter:image") || extractAmazonImage(html) || extractMarkdownImage(readerContent) || extractAmazonImageUrl(readerContent);
-  if (!image) throw new Error("This retailer did not provide a product image. Please send a product link with a visible image.");
-  return { name, image };
+  const asin = extractAsin(finalUrl, `${html}\n${readerContent}`);
+
+  // A product title is the essential metadata. If Amazon blocks its image markup,
+  // do not reject the affiliate link; the shop can still send the visitor through
+  // the original affiliate URL. The UI already handles a missing image gracefully.
+  return { name, image: image || "", asin };
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
@@ -131,7 +126,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/shop/products", async (_req, res, next) => { try { res.json(await storage.listShopProducts()); } catch (err) { next(err); } });
   app.get("/api/shop/products/:id/click", async (req, res, next) => { try { const product = await storage.getShopProduct(req.params.id); if (!product) return res.status(404).send("Product not found"); await storage.incrementShopClick(req.params.id); res.redirect(product.affiliateUrl); } catch (err) { next(err); } });
   app.get("/api/shop/admin", requireAdmin, async (_req, res, next) => { try { res.json({ products: await storage.listShopProducts(), summary: await storage.shopSummary() }); } catch (err) { next(err); } });
-  app.post("/api/shop/products", requireAdmin, async (req, res) => { try { const { affiliateUrl, category } = req.body || {}; if (!affiliateUrl || !category) return res.status(400).json({ message: "Affiliate link and category are required" }); const meta = await unfurlProduct(String(affiliateUrl)); const product = await storage.createShopProduct({ affiliateUrl: String(affiliateUrl), category: String(category), ...meta }); res.status(201).json(product); } catch (err: any) { res.status(400).json({ message: err.message || "Could not add product" }); } });
+  app.get("/api/shop/resolve", async (req, res) => { try { const affiliateUrl = String(req.query.url || ""); if (!affiliateUrl) return res.status(400).json({ message: "url is required" }); const parsed = new URL(affiliateUrl); const allowed = ["link.amazon", "www.link.amazon", "amzn.to", "www.amzn.to"].includes(parsed.hostname.toLowerCase()) || parsed.hostname.toLowerCase().endsWith("amazon.in") || parsed.hostname.toLowerCase().endsWith("amazon.com"); if (!allowed) return res.status(400).json({ message: "Only Amazon links are supported" }); res.json(await unfurlProduct(affiliateUrl)); } catch (err: any) { res.status(400).json({ message: err.message || "Could not resolve product" }); } });
+  app.post("/api/shop/products", requireAdmin, async (req, res) => { try { const { affiliateUrl, category } = req.body || {}; if (!affiliateUrl || !category) return res.status(400).json({ message: "Affiliate link and category are required" }); const meta = await unfurlProduct(String(affiliateUrl)); const product = await storage.createShopProduct({ affiliateUrl: String(affiliateUrl), category: String(category), name: meta.name, image: meta.image }); res.status(201).json(product); } catch (err: any) { res.status(400).json({ message: err.message || "Could not add product" }); } });
   app.delete("/api/shop/products/:id", requireAdmin, async (req, res, next) => { try { await storage.deleteShopProduct(req.params.id); res.json({ message: "Deleted" }); } catch (err) { next(err); } });
 
   app.get("/api/users", requireAdmin, async (_req, res, next) => { try { res.json((await storage.listUsers()).map(sanitize)); } catch (err) { next(err); } });
