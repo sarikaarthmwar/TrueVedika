@@ -4,12 +4,27 @@ import { storage } from "./storage.js";
 import { setupAuth, requireAuth, requireAdmin, hashPassword, sanitize } from "./auth.js";
 import { insertInitiativeSchema } from "../shared/schema.js";
 
+function decodeHtml(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
 function extractMeta(html: string, key: string) {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const a = new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`, "i").exec(html);
   const b = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`, "i").exec(html);
-  return (a?.[1] || b?.[1] || "").replace(/&amp;/g, "&").trim();
+  return decodeHtml(a?.[1] || b?.[1] || "");
 }
+
+function extractAmazonImage(html: string) {
+  const landingImage = /<img\b[^>]*\bid=["']landingImage["'][^>]*>/i.exec(html)?.[0] || "";
+  const image = /(?:data-old-hires|src)=["']([^"']+)["']/i.exec(landingImage)?.[1] || "";
+  return decodeHtml(image);
+}
+
 async function unfurlProduct(url: string) {
   const parsed = new URL(url);
   if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Only web links are supported');
@@ -18,8 +33,9 @@ async function unfurlProduct(url: string) {
   const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 TrueVedikaShop/1.0' }, redirect: 'follow', signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`Could not read product page (${response.status})`);
   const html = await response.text();
-  const name = extractMeta(html, 'og:title') || extractMeta(html, 'twitter:title') || /<title[^>]*>([^<]+)<\/title>/i.exec(html)?.[1]?.trim() || 'TrueVedika Pick';
-  const image = extractMeta(html, 'og:image') || extractMeta(html, 'twitter:image');
+  const pageTitle = /<title[^>]*>([^<]+)<\/title>/i.exec(html)?.[1] || "";
+  const name = extractMeta(html, 'og:title') || extractMeta(html, 'twitter:title') || decodeHtml(pageTitle) || 'TrueVedika Pick';
+  const image = extractMeta(html, 'og:image') || extractMeta(html, 'twitter:image') || extractAmazonImage(html);
   if (!image) throw new Error('This retailer did not provide a product image. Please send a product link with a visible image.');
   return { name, image };
 }
