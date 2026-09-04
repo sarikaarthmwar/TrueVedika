@@ -17,7 +17,7 @@ function extractMeta(html: string, key: string) {
 
 function extractAmazonImage(html: string) {
   const landingImage = /<img\b[^>]*\bid=["']landingImage["'][^>]*>/i.exec(html)?.[0] || "";
-  const image = /(?:data-old-hires|src)=["']([^"']+)["']/i.exec(landingImage)?.[1] || "";
+  const image = /(?:data-old-hires|src)=['"]([^'"]+)['"]/i.exec(landingImage)?.[1] || "";
   return decodeHtml(image);
 }
 
@@ -41,21 +41,48 @@ async function readProductPage(url: string) {
     signal: AbortSignal.timeout(10000)
   });
   if (!response.ok) throw new Error(`Could not read product page (${response.status})`);
-  return response.text();
+  return { html: await response.text(), finalUrl: response.url };
 }
 
 async function readAmazonShortLink(url: string) {
-  const response = await fetch(`https://r.jina.ai/${url}`, {
-    headers: {
-      "User-Agent": "TrueVedikaShop/1.0",
-      "X-Engine": "browser",
-      "X-No-Cache": "true",
-      "X-Base": "true"
-    },
-    signal: AbortSignal.timeout(20000)
-  });
-  if (!response.ok) throw new Error(`Could not read Amazon short link (${response.status})`);
-  return response.text();
+  const parsed = new URL(url);
+  const code = parsed.pathname.replace(/^\/+/, "");
+  if (!code || !/^[A-Za-z0-9_-]+$/.test(code)) throw new Error("Invalid Amazon short link");
+
+  // link.amazon is a redirect service. In server environments Amazon's first hop
+  // can return a bot-protection response. The redirect target used by these links
+  // is amzlinks.in/<code>, which is the useful page to read for metadata.
+  const candidates = [
+    `https://amzlinks.in/${code}`,
+    `https://r.jina.ai/https://amzlinks.in/${code}`,
+    `https://r.jina.ai/${url}`
+  ];
+
+  let lastStatus = 0;
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 TrueVedikaShop/1.0",
+          "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8"
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(15000)
+      });
+      lastStatus = response.status;
+      if (!response.ok) {
+        lastError = new Error(`HTTP ${response.status}`);
+        continue;
+      }
+      const text = await response.text();
+      if (text.trim()) return { html: text, finalUrl: response.url };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(`Could not resolve Amazon short link (${lastStatus || "network error"})`);
 }
 
 async function unfurlProduct(url: string) {
@@ -67,10 +94,13 @@ async function unfurlProduct(url: string) {
   let html = "";
   let readerContent = "";
   try {
-    html = await readProductPage(url);
+    const page = await readProductPage(url);
+    html = page.html;
   } catch (directError) {
     if (["link.amazon", "www.link.amazon", "amzn.to", "www.amzn.to"].includes(hostname)) {
-      readerContent = await readAmazonShortLink(url);
+      const page = await readAmazonShortLink(url);
+      html = page.html;
+      readerContent = page.html;
     } else {
       throw directError;
     }
